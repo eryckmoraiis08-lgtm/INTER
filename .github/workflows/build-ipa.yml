@@ -1,0 +1,39 @@
+name: Build IPA for SideStore
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-cache: true
+
+      - name: Build IPA (Simulator Build)
+        run: |
+          npx expo prebuild --platform ios
+          npx xcodebuild -workspace ios/*.xcworkspace -scheme $(ls ios/*.xcworkspace | xargs basename -s .xcworkspace) -configuration Release -sdk iphoneos -derivedDataPath build -archivePath build/App.xcarchive archive
+          mkdir -p build/Payload
+          cp -r build/App.xcarchive/Products/Applications/*.app build/Payload/
+          cd build && zip -r ../App.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ipa
+          path: App.ipa
